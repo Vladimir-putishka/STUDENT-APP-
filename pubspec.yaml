@@ -1,0 +1,14 @@
+name: student_assistant
+description: Student Assistant Flutter Milestone 1 MVP.
+publish_to: none
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
