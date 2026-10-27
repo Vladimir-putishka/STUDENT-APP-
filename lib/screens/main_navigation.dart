@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../models/news_article.dart';
+import '../services/task_service.dart';
 
 import 'home_screen.dart';
+import 'tasks_screen.dart';
 import 'favorites_screen.dart';
 import 'profile_screen.dart';
 
@@ -25,9 +27,22 @@ class MainNavigation extends StatefulWidget {
 }
 
 class _MainNavigationState extends State<MainNavigation> {
+  // NAVIGATION
+
   int selectedIndex = 0;
 
+  // SHARED TASK SERVICE
+
+  final TaskService taskService = TaskService();
+
+  bool tasksLoaded = false;
+  String? loadingError;
+
+  // FAVORITE NEWS
+
   final Set<String> favoriteIds = {};
+
+  // UNIVERSITY NEWS
 
   final List<NewsArticle> news = [
     const NewsArticle(
@@ -86,6 +101,42 @@ class _MainNavigationState extends State<MainNavigation> {
     ),
   ];
 
+  // INITIALIZE
+
+  @override
+  void initState() {
+    super.initState();
+    loadTasks();
+  }
+
+  // LOAD SAVED TASKS
+
+  Future<void> loadTasks() async {
+    try {
+      await taskService.loadTasks();
+
+      if (!mounted) return;
+
+      setState(() {
+        tasksLoaded = true;
+        loadingError = null;
+      });
+
+      debugPrint('Tasks loaded successfully');
+    } catch (error) {
+      debugPrint('Task loading error: $error');
+
+      if (!mounted) return;
+
+      setState(() {
+        tasksLoaded = false;
+        loadingError = error.toString();
+      });
+    }
+  }
+
+  // TOGGLE FAVORITE NEWS
+
   void toggleFavorite(NewsArticle article) {
     setState(() {
       if (favoriteIds.contains(article.id)) {
@@ -96,15 +147,117 @@ class _MainNavigationState extends State<MainNavigation> {
     });
   }
 
+  // CHECK IF NEWS IS FAVORITE
+
   bool isFavorite(NewsArticle article) {
     return favoriteIds.contains(article.id);
   }
 
+  // CHANGE TAB
+
+  void changeTab(int index) {
+    setState(() {
+      selectedIndex = index;
+    });
+  }
+
+  // DISPOSE SERVICE
+
+  @override
+  void dispose() {
+    taskService.dispose();
+    super.dispose();
+  }
+
+  // LOADING SCREEN
+
+  Widget buildLoadingScreen() {
+    return const Scaffold(
+      body: Center(
+        child: CircularProgressIndicator(
+          color: Color(0xFF405DE6),
+        ),
+      ),
+    );
+  }
+
+  // ERROR SCREEN
+
+  Widget buildErrorScreen() {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.error_outline,
+                size: 70,
+                color: Colors.red,
+              ),
+
+              const SizedBox(height: 16),
+
+              const Text(
+                'Failed to load assignments',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              Text(
+                loadingError ?? 'Unknown error',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.grey,
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              ElevatedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    loadingError = null;
+                  });
+
+                  loadTasks();
+                },
+                icon: const Icon(Icons.refresh),
+                label: const Text('Try Again'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // MAIN SCREEN
+
   @override
   Widget build(BuildContext context) {
+    // WAIT UNTIL TASKS ARE LOADED
+
+    if (!tasksLoaded) {
+      if (loadingError != null) {
+        return buildErrorScreen();
+      }
+
+      return buildLoadingScreen();
+    }
+
+    // FILTER FAVORITE NEWS
+
     final favoriteNews = news
         .where((article) => favoriteIds.contains(article.id))
         .toList();
+
+    // APPLICATION SCREENS
 
     final screens = [
       HomeScreen(
@@ -112,6 +265,11 @@ class _MainNavigationState extends State<MainNavigation> {
         news: news,
         isFavorite: isFavorite,
         onFavoriteToggle: toggleFavorite,
+        taskService: taskService,
+      ),
+
+      TasksScreen(
+        taskService: taskService,
       ),
 
       FavoritesScreen(
@@ -129,10 +287,14 @@ class _MainNavigationState extends State<MainNavigation> {
     ];
 
     return Scaffold(
+      // KEEP SCREENS ALIVE
+
       body: IndexedStack(
         index: selectedIndex,
         children: screens,
       ),
+
+      // BOTTOM NAVIGATION
 
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: selectedIndex,
@@ -142,17 +304,22 @@ class _MainNavigationState extends State<MainNavigation> {
 
         type: BottomNavigationBarType.fixed,
 
-        onTap: (index) {
-          setState(() {
-            selectedIndex = index;
-          });
-        },
+        showSelectedLabels: true,
+        showUnselectedLabels: true,
+
+        onTap: changeTab,
 
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
             activeIcon: Icon(Icons.home),
             label: 'Home',
+          ),
+
+          BottomNavigationBarItem(
+            icon: Icon(Icons.assignment_outlined),
+            activeIcon: Icon(Icons.assignment),
+            label: 'Tasks',
           ),
 
           BottomNavigationBarItem(
