@@ -4,7 +4,9 @@ class ProfileScreen extends StatefulWidget {
   final String name;
   final String email;
   final String role;
-  final VoidCallback onLogout;
+  final Future<void> Function() onLogout;
+  final bool darkMode;
+  final Future<void> Function(bool) onThemeChanged;
 
   const ProfileScreen({
     super.key,
@@ -12,6 +14,8 @@ class ProfileScreen extends StatefulWidget {
     required this.email,
     required this.role,
     required this.onLogout,
+    required this.darkMode,
+    required this.onThemeChanged,
   });
 
   @override
@@ -19,8 +23,23 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  bool notificationsEnabled = true;
-  bool darkMode = false;
+  bool busy = false;
+
+  Future<void> applySetting(Future<void> Function() action) async {
+    if (busy) return;
+    setState(() => busy = true);
+    try {
+      await action();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not save your setting. Try again.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -81,8 +100,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 30),
 
                 Card(
-                  color: Colors.white,
-
                   child: Padding(
                     padding: const EdgeInsets.all(16),
 
@@ -117,39 +134,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 15),
 
                 SwitchListTile(
-                  title: const Text('Notifications'),
-                  value: notificationsEnabled,
-
-                  onChanged: (value) {
-                    setState(() {
-                      notificationsEnabled = value;
-                    });
-                  },
-                ),
-
-                SwitchListTile(
                   title: const Text('Dark Mode'),
-                  value: darkMode,
-
-                  onChanged: (value) {
-                    setState(() {
-                      darkMode = value;
-                    });
-                  },
+                  value: widget.darkMode,
+                  onChanged: busy
+                      ? null
+                      : (value) => applySetting(() => widget.onThemeChanged(value)),
                 ),
 
                 const SizedBox(height: 30),
 
-                ElevatedButton.icon(
-                  onPressed: widget.onLogout,
+                OutlinedButton.icon(
+                  onPressed: busy ? null : () => applySetting(widget.onLogout),
 
                   icon: const Icon(Icons.logout),
 
                   label: const Text('Logout'),
 
-                  style: ElevatedButton.styleFrom(
-                    foregroundColor: Colors.red,
-                  ),
                 ),
               ],
             ),

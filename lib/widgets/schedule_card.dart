@@ -9,7 +9,7 @@ class ScheduleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Card(
     elevation: 0,
-    color: Colors.white,
+    color: Theme.of(context).colorScheme.surfaceContainerLow,
     margin: const EdgeInsets.only(bottom: 10),
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
     child: Padding(
@@ -24,8 +24,13 @@ class ScheduleCard extends StatelessWidget {
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(subject, maxLines: 2, overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 3),
-          Text(room, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+          if (room.isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(room, style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            )),
+          ],
         ])),
       ]),
     ),

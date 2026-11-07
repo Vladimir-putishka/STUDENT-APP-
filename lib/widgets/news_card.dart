@@ -21,7 +21,7 @@ class NewsCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 0,
-      color: Colors.white,
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
 
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
@@ -109,6 +109,7 @@ class NewsCard extends StatelessWidget {
                   ),
 
                   IconButton(
+                    tooltip: isFavorite ? 'Remove from favorites' : 'Add to favorites',
                     onPressed: onFavoriteTap,
 
                     icon: Icon(

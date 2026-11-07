@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import '../services/task_service.dart';
 import '../models/student_task.dart';
-import '../services/task_service.dart';
 
 class AddTaskScreen extends StatefulWidget {
   final TaskService taskService;
+  final StudentTask? task;
 
   const AddTaskScreen({
     super.key,
     required this.taskService,
+    this.task,
   });
 
   @override
@@ -18,53 +19,78 @@ class AddTaskScreen extends StatefulWidget {
 class _AddTaskScreenState extends State<AddTaskScreen> {
   final formKey = GlobalKey<FormState>();
 
-  final titleController = TextEditingController();
-  final subjectController = TextEditingController();
-  final descriptionController = TextEditingController();
+  late final titleController = TextEditingController(text: widget.task?.title);
+  late final subjectController = TextEditingController(text: widget.task?.subject);
+  late final descriptionController =
+      TextEditingController(text: widget.task?.description);
 
-  DateTime? selectedDate;
-  String selectedCategory = 'Development';
+  late DateTime? selectedDate = widget.task?.deadline;
+  late String selectedCategory = widget.task?.category ?? 'Development';
+  bool saving = false;
 
   Future<void> selectDate() async {
+    final initialDate = selectedDate ?? DateTime.now();
     final date = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2035),
+      initialDate: initialDate,
+      firstDate: DateTime(initialDate.year - 10),
+      lastDate: DateTime(initialDate.year + 10, 12, 31),
     );
 
-    if (date != null) {
+    if (mounted && date != null) {
       setState(() => selectedDate = date);
     }
   }
 
   Future<void> saveTask() async {
-    if (!formKey.currentState!.validate()) return;
+    if (saving || !formKey.currentState!.validate()) return;
 
-    if (selectedDate == null) {
+    final oldTask = widget.task;
+    final date = selectedDate;
+    if (date == null && oldTask == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a due date')),
       );
       return;
     }
 
-    final date = selectedDate!;
+    final title = titleController.text.trim();
+    final subject = subjectController.text.trim();
+    final description = descriptionController.text.trim();
+    final category = selectedCategory;
+    StudentTask buildTask(StudentTask? current) => StudentTask(
+          id: current?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
+          title: title,
+          subject: subject,
+          description: description,
+          dueDate: date == null
+              ? oldTask!.dueDate
+              : '${date.day}/${date.month}/${date.year}',
+          category: category,
+          color: current?.color ?? const Color(0xFF405DE6),
+          isCompleted: current?.isCompleted ?? false,
+          isFavorite: current?.isFavorite ?? false,
+        );
 
-    final task = StudentTask(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
-      title: titleController.text.trim(),
-      subject: subjectController.text.trim(),
-      description: descriptionController.text.trim(),
-      dueDate: '${date.day}/${date.month}/${date.year}',
-      category: selectedCategory,
-      color: const Color(0xFF405DE6),
-    );
-
-    await widget.taskService.addTask(task);
-
-    if (!mounted) return;
-
-    Navigator.pop(context);
+    setState(() => saving = true);
+    try {
+      if (oldTask == null) {
+        await widget.taskService.addTask(buildTask(null));
+      } else {
+        await widget.taskService.updateTask(oldTask.id, buildTask);
+      }
+      if (mounted && ModalRoute.of(context)?.isCurrent == true) {
+        Navigator.pop(context);
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not save the assignment. Try again.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
   }
 
   @override
@@ -78,7 +104,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('New Assignment')),
+      appBar: AppBar(
+        title: Text(widget.task == null ? 'New Assignment' : 'Edit Assignment'),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Form(
@@ -91,8 +119,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                   labelText: 'Assignment Title',
                   border: OutlineInputBorder(),
                 ),
-                validator: (value) =>
-                value == null || value.trim().isEmpty
+                validator: (value) => value == null || value.trim().isEmpty
                     ? 'Enter title'
                     : null,
               ),
@@ -103,8 +130,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                   labelText: 'Subject',
                   border: OutlineInputBorder(),
                 ),
-                validator: (value) =>
-                value == null || value.trim().isEmpty
+                validator: (value) => value == null || value.trim().isEmpty
                     ? 'Enter subject'
                     : null,
               ),
@@ -120,17 +146,17 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 initialValue: selectedCategory,
-                items: ['Development', 'Research', 'Exam', 'Quiz']
+                items: {'Development', 'Research', 'Exam', 'Quiz', selectedCategory}
                     .map(
                       (category) => DropdownMenuItem(
-                    value: category,
-                    child: Text(category),
-                  ),
-                )
+                        value: category,
+                        child: Text(category),
+                      ),
+                    )
                     .toList(),
                 onChanged: (value) {
                   setState(
-                        () => selectedCategory = value ?? 'Development',
+                    () => selectedCategory = value ?? 'Development',
                   );
                 },
               ),
@@ -138,7 +164,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
               ListTile(
                 title: Text(
                   selectedDate == null
-                      ? 'Select due date'
+                      ? widget.task?.dueDate ?? 'Select due date'
                       : '${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}',
                 ),
                 trailing: const Icon(Icons.calendar_today),
@@ -148,8 +174,8 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: saveTask,
-                  child: const Text('Add Assignment'),
+                  onPressed: saving ? null : saveTask,
+                  child: Text(widget.task == null ? 'Add Assignment' : 'Save Changes'),
                 ),
               ),
             ],

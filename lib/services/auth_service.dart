@@ -64,10 +64,12 @@ class AuthService {
       ) async {
     final prefs = await SharedPreferences.getInstance();
 
-    await prefs.setString(
+    if (!await prefs.setString(
       _usersKey,
       jsonEncode(users),
-    );
+    )) {
+      throw StateError('Could not save the account.');
+    }
   }
 
   // REGISTER
@@ -109,10 +111,12 @@ class AuthService {
 
     final prefs = await SharedPreferences.getInstance();
 
-    await prefs.setString(
+    if (!await prefs.setString(
       _sessionKey,
       normalizedEmail,
-    );
+    )) {
+      throw StateError('Account created. Sign in to continue.');
+    }
   }
 
   // LOGIN
@@ -162,10 +166,12 @@ class AuthService {
 
     final prefs = await SharedPreferences.getInstance();
 
-    await prefs.setString(
+    if (!await prefs.setString(
       _sessionKey,
       normalizedEmail,
-    );
+    )) {
+      throw StateError('Could not save the session.');
+    }
 
     return true;
   }
@@ -201,13 +207,13 @@ class AuthService {
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
 
-    await prefs.remove(_sessionKey);
+    if (!await prefs.remove(_sessionKey)) {
+      throw StateError('Could not sign out.');
+    }
   }
 
-  // CHECK ACCOUNT
-
-  static Future<bool> hasAccount() async {
+  static Future<String?> firstAccountEmail() async {
     final users = await _getUsers();
-    return users.isNotEmpty;
+    return users.firstOrNull?['email'] as String?;
   }
 }

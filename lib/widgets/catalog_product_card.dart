@@ -4,22 +4,26 @@ import '../models/catalog_product.dart';
 class CatalogProductCard extends StatelessWidget {
   final CatalogProduct product;
   final bool isGrid;
+  final bool isInCart;
+  final VoidCallback onCartToggle;
 
   const CatalogProductCard({
     super.key,
     required this.product,
     required this.isGrid,
+    required this.isInCart,
+    required this.onCartToggle,
   });
 
   @override
   Widget build(BuildContext context) {
-    return isGrid ? _buildGridCard() : _buildListCard();
+    return isGrid ? _buildGridCard(context) : _buildListCard(context);
   }
 
-  Widget _buildListCard() {
+  Widget _buildListCard(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(12),
-      color: Colors.white,
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
       child: Row(
         children: [
           Container(
@@ -35,9 +39,7 @@ class CatalogProductCard extends StatelessWidget {
               color: product.color,
             ),
           ),
-
           const SizedBox(width: 14),
-
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -51,9 +53,7 @@ class CatalogProductCard extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-
                 const SizedBox(height: 5),
-
                 Text(
                   product.category,
                   style: const TextStyle(
@@ -61,9 +61,7 @@ class CatalogProductCard extends StatelessWidget {
                     color: Colors.grey,
                   ),
                 ),
-
                 const SizedBox(height: 5),
-
                 Row(
                   children: [
                     const Icon(
@@ -78,27 +76,45 @@ class CatalogProductCard extends StatelessWidget {
               ],
             ),
           ),
-
           const SizedBox(width: 8),
-
-          Text(
-            '${product.price.toStringAsFixed(0)} ₸',
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF405DE6),
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                CatalogProduct.formatPrice(product.price),
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              SizedBox(
+                width: 118,
+                child: OutlinedButton(
+                  onPressed: onCartToggle,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                  ),
+                  child: Text(
+                    isInCart ? 'Remove from Cart' : 'Add to Cart',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildGridCard() {
+  Widget _buildGridCard(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
@@ -108,7 +124,6 @@ class CatalogProductCard extends StatelessWidget {
           ),
         ],
       ),
-
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -126,9 +141,7 @@ class CatalogProductCard extends StatelessWidget {
               ),
             ),
           ),
-
           const SizedBox(height: 10),
-
           Text(
             product.title,
             maxLines: 1,
@@ -138,9 +151,7 @@ class CatalogProductCard extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-
           const SizedBox(height: 4),
-
           Text(
             product.category,
             maxLines: 1,
@@ -150,9 +161,7 @@ class CatalogProductCard extends StatelessWidget {
               color: Colors.grey,
             ),
           ),
-
           const SizedBox(height: 5),
-
           Row(
             children: [
               const Icon(Icons.star, color: Colors.amber, size: 15),
@@ -163,15 +172,28 @@ class CatalogProductCard extends StatelessWidget {
               ),
             ],
           ),
-
           const SizedBox(height: 5),
-
           Text(
-            '${product.price.toStringAsFixed(0)} ₸',
-            style: const TextStyle(
+            CatalogProduct.formatPrice(product.price),
+            style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF405DE6),
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: onCartToggle,
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+              ),
+              child: Text(
+                isInCart ? 'Remove from Cart' : 'Add to Cart',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 11),
+              ),
             ),
           ),
         ],

@@ -8,7 +8,7 @@ import 'news_detail_screen.dart';
 class FavoritesScreen extends StatelessWidget {
   final List<NewsArticle> favorites;
   final bool Function(NewsArticle) isFavorite;
-  final ValueChanged<NewsArticle> onFavoriteToggle;
+  final Future<bool> Function(NewsArticle) onFavoriteToggle;
 
   const FavoritesScreen({
     super.key,

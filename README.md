@@ -1,57 +1,25 @@
-# Student Assistant 🎓 — Flutter Milestone 1
+# Student Assistant
 
-A responsive student planner MVP built for the Weeks 5–7 assessment (NOT the Week 15 final capstone).
+A local Flutter workspace for university students. The home screen shows today's classes, open assignments ordered by deadline, and progress.
 
-## Problem and target users
-Students often track deadlines and classes in different places. Student Assistant brings today's classes and upcoming assignments into a single, simple screen.
+## Use the app
 
-## Features
-- **Home / Dashboard:** study progress, class schedule, and assignment list.
-- **Task Details:** Stack banner with overlay bookmark, assignment description, tags and deadline.
-- **Interactivity:** bookmark/unbookmark a task and mark it complete/in progress with `StatefulWidget` and `setState()`.
-- **Responsive layout:** scrollable screens, constrained width, `Expanded`, `Wrap`, text ellipsis, and sticky bottom button.
+- Create a local account or sign in with an existing one.
+- Open **Weekly schedule** from Home to add, edit, or remove repeating classes.
+- In **Tasks**, create assignments, search by title or course, filter by status, or switch between list and grid. Open an assignment to edit it, bookmark it, or mark it complete. Swipe to delete and tap **Undo** to restore it. Pull down to reload saved tasks.
+- Save articles to **Favorites**. The news section contains sample announcements.
+- In **Marketplace**, pick from six study products and manage the cart. Prices are shown in tenge.
+- Turn on **Dark Mode** in Profile to save the preference for your account.
 
-## Run the project
-Flutter SDK is required. Since this hand-in contains source files (rather than generated platform folders):
+Tasks, classes, article bookmarks, cart, and theme are stored on this device per account. Data from the old shared task list is imported into the first local account on the device. Local accounts use the existing password and session storage. A university feed, payments, and cloud synchronization require external services.
 
-```bash
-flutter create student_assistant
-cd student_assistant
-```
+## Run and check
 
-Copy the provided `lib/` folder and `pubspec.yaml` into the newly created folder (replace existing files), then:
+Open the existing project in Android Studio, or run these commands in the project directory with a Flutter device or emulator available.
 
 ```bash
 flutter pub get
 flutter run
+flutter analyze
+flutter test
 ```
-
-## Folder layout
-```text
-lib/
-  main.dart
-  models/student_task.dart
-  screens/home_screen.dart
-  screens/task_detail_screen.dart
-  widgets/task_card.dart
-  widgets/schedule_card.dart
-```
-
-## Milestone 1 checklist
-- [x] At least two screens
-- [x] Column, Row, Card, Expanded, Wrap and Stack
-- [x] Working StatefulWidget / setState interaction
-- [x] Responsive scrollable content, avoiding RenderFlex overflow
-- [x] Clean screens/widgets folder separation
-- [ ] Run on an emulator/phone to verify layout
-- [ ] Push the resulting Flutter project to GitHub
-
-## Defense script (3–5 minutes)
-**Pitch (1 minute):** Student Assistant solves the problem of keeping track of assignments and class schedules. The target users are university students. The home screen shows classes and upcoming tasks, helping students stay organized.
-
-**Live demo (2 minutes):** Show the dashboard, schedule and progress. Open a task card to view details. Tap the bookmark icon, then Mark as Completed. Go back and show that the task icon and progress counter have updated. Reopen the task and mark it In Progress to demonstrate the second state.
-
-**Code review (1 minute):** Show `lib/screens` and `lib/widgets`. Explain that `HomeScreen` stores the tasks in a `StatefulWidget`, and `TaskDetailScreen` calls `setState()` to change the task state. Point out `Stack` on the detail banner, `Wrap` for tags, `Expanded` for the bottom button, and scroll views for smaller phones.
-
-## Notes
-This is intentionally a local-state MVP: no database, REST API, or BLoC is needed for Milestone 1. Demo tasks and schedule are sample data, not live university records.

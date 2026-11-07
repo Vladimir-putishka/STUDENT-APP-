@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import 'providers/cart_provider.dart';
 import 'services/auth_service.dart';
+import 'services/student_storage.dart';
 import 'screens/login_screen.dart';
 import 'screens/registration_screen.dart';
 import 'screens/main_navigation.dart';
@@ -14,17 +18,18 @@ class StudentAssistantApp extends StatefulWidget {
   const StudentAssistantApp({super.key});
 
   @override
-  State<StudentAssistantApp> createState() =>
-      _StudentAssistantAppState();
+  State<StudentAssistantApp> createState() => _StudentAssistantAppState();
 }
 
 class _StudentAssistantAppState extends State<StudentAssistantApp> {
-
   // AUTHENTICATION STATE
 
   bool isLoading = true;
-  bool isLoggedIn = false;
   bool showRegistration = false;
+  bool darkMode = false;
+  bool sessionError = false;
+  bool isLoggingOut = false;
+  StudentStorage? storage;
 
   // USER DATA
 
@@ -45,11 +50,16 @@ class _StudentAssistantAppState extends State<StudentAssistantApp> {
   Future<void> loadSession() async {
     try {
       final user = await AuthService.currentUser();
+      final nextStorage = user == null
+          ? null
+          : StudentStorage(await SharedPreferences.getInstance(), user['email']!);
 
       if (!mounted) return;
 
       setState(() {
-        isLoggedIn = user != null;
+        storage = nextStorage;
+        darkMode = nextStorage?.read('dark_mode') == 'true';
+        sessionError = false;
 
         if (user != null) {
           userName = user['name'] ?? '';
@@ -71,7 +81,7 @@ class _StudentAssistantAppState extends State<StudentAssistantApp> {
 
       setState(() {
         isLoading = false;
-        isLoggedIn = false;
+        sessionError = true;
       });
     }
   }
@@ -95,11 +105,11 @@ class _StudentAssistantAppState extends State<StudentAssistantApp> {
   // REGISTER NEW USER
 
   Future<void> registerUser(
-      String name,
-      String email,
-      String password,
-      String role,
-      ) async {
+    String name,
+    String email,
+    String password,
+    String role,
+  ) async {
     await AuthService.register(
       name: name,
       email: email,
@@ -115,9 +125,9 @@ class _StudentAssistantAppState extends State<StudentAssistantApp> {
   // LOGIN EXISTING USER
 
   Future<bool> loginUser(
-      String email,
-      String password,
-      ) async {
+    String email,
+    String password,
+  ) async {
     final success = await AuthService.login(
       email: email,
       password: password,
@@ -134,13 +144,16 @@ class _StudentAssistantAppState extends State<StudentAssistantApp> {
   // LOGOUT USER
 
   Future<void> logout() async {
+    if (isLoggingOut) return;
+    setState(() => isLoggingOut = true);
     try {
       await AuthService.logout();
 
       if (!mounted) return;
 
       setState(() {
-        isLoggedIn = false;
+        storage = null;
+        darkMode = false;
         showRegistration = false;
 
         userName = '';
@@ -149,57 +162,62 @@ class _StudentAssistantAppState extends State<StudentAssistantApp> {
       });
 
       debugPrint('User logged out successfully');
-    } catch (error) {
-      debugPrint('Logout error: $error');
+    } finally {
+      if (mounted) setState(() => isLoggingOut = false);
     }
+  }
+
+  Future<void> setDarkMode(bool value) async {
+    final account = storage;
+    if (account == null) return;
+    await account.run(() async {
+      await account.write('dark_mode', value.toString());
+      if (mounted && storage == account) setState(() => darkMode = value);
+    });
   }
 
   // APPLICATION THEME
 
-  ThemeData buildAppTheme() {
+  ThemeData buildAppTheme(Brightness brightness) {
+    final colors = ColorScheme.fromSeed(
+      seedColor: const Color(0xFF405DE6),
+      brightness: brightness,
+    );
+    final background = brightness == Brightness.light
+        ? const Color(0xFFF6F8FD)
+        : colors.surface;
     return ThemeData(
       useMaterial3: true,
-
-      scaffoldBackgroundColor: const Color(0xFFF6F8FD),
-
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xFF405DE6),
-      ),
-
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Color(0xFFF6F8FD),
+      scaffoldBackgroundColor: background,
+      colorScheme: colors,
+      appBarTheme: AppBarTheme(
+        backgroundColor: background,
         scrolledUnderElevation: 0,
       ),
-
       inputDecorationTheme: InputDecorationTheme(
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
         ),
-
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(
-            color: Color(0xFF405DE6),
+          borderSide: BorderSide(
+            color: colors.primary,
             width: 2,
           ),
         ),
-
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 18,
         ),
       ),
-
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF405DE6),
-          foregroundColor: Colors.white,
-
+          backgroundColor: colors.primary,
+          foregroundColor: colors.onPrimary,
           padding: const EdgeInsets.symmetric(
             horizontal: 20,
             vertical: 16,
           ),
-
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -211,7 +229,6 @@ class _StudentAssistantAppState extends State<StudentAssistantApp> {
   // SELECT CURRENT SCREEN
 
   Widget buildCurrentScreen() {
-
     // LOADING
 
     if (isLoading) {
@@ -226,12 +243,30 @@ class _StudentAssistantAppState extends State<StudentAssistantApp> {
 
     // MAIN APPLICATION
 
-    if (isLoggedIn) {
+    if (sessionError) {
+      return Scaffold(
+        body: Center(
+          child: FilledButton(
+            onPressed: () {
+              setState(() => isLoading = true);
+              loadSession();
+            },
+            child: const Text('Could not load your account. Retry'),
+          ),
+        ),
+      );
+    }
+
+    final account = storage;
+    if (account != null) {
       return MainNavigation(
+        storage: account,
         userName: userName,
         userEmail: userEmail,
         userRole: userRole,
         onLogout: logout,
+        darkMode: darkMode,
+        onThemeChanged: setDarkMode,
       );
     }
 
@@ -256,14 +291,17 @@ class _StudentAssistantAppState extends State<StudentAssistantApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Student Assistant',
-
-      debugShowCheckedModeBanner: false,
-
-      theme: buildAppTheme(),
-
-      home: buildCurrentScreen(),
+    return ChangeNotifierProvider(
+      key: ValueKey(storage?.email),
+      create: (_) => CartProvider(storage),
+      child: MaterialApp(
+        title: 'Student Assistant',
+        debugShowCheckedModeBanner: false,
+        theme: buildAppTheme(Brightness.light),
+        darkTheme: buildAppTheme(Brightness.dark),
+        themeMode: darkMode ? ThemeMode.dark : ThemeMode.light,
+        home: buildCurrentScreen(),
+      ),
     );
   }
 }

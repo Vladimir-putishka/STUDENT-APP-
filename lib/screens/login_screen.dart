@@ -24,6 +24,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool isLoading = false;
 
   Future<void> login() async {
+    if (isLoading) return;
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => isLoading = true);
@@ -184,12 +185,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const SizedBox(height: 22),
 
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       const Text("Don't have an account?"),
                       TextButton(
-                        onPressed: widget.onRegister,
+                        onPressed: isLoading ? null : widget.onRegister,
                         child: const Text('Register'),
                       ),
                     ],

@@ -6,6 +6,17 @@ import '../services/task_service.dart';
 import 'task_detail_screen.dart';
 import 'add_task_screen.dart';
 
+enum _TaskFilter {
+  all('All assignments'),
+  pending('In progress'),
+  overdue('Overdue'),
+  completed('Completed'),
+  saved('Bookmarked');
+
+  const _TaskFilter(this.label);
+  final String label;
+}
+
 class TasksScreen extends StatefulWidget {
   final TaskService taskService;
 
@@ -20,7 +31,8 @@ class TasksScreen extends StatefulWidget {
 
 class _TasksScreenState extends State<TasksScreen> {
   bool isGridView = false;
-  bool isRefreshing = false;
+  String query = '';
+  _TaskFilter filter = _TaskFilter.all;
 
   // OPEN TASK DETAILS
 
@@ -29,10 +41,8 @@ class _TasksScreenState extends State<TasksScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => TaskDetailScreen(
-          task: task,
-          onUpdate: () {
-            widget.taskService.updateTask(task);
-          },
+          taskId: task.id,
+          taskService: widget.taskService,
         ),
       ),
     );
@@ -53,55 +63,47 @@ class _TasksScreenState extends State<TasksScreen> {
 
   // MARK TASK AS COMPLETED
 
-  void toggleCompleted(StudentTask task, bool? value) {
-    task.isCompleted = value ?? false;
-    widget.taskService.updateTask(task);
+  Future<void> toggleCompleted(StudentTask task, bool? value) async {
+    try {
+      await widget.taskService.updateTask(
+        task.id,
+        (current) => current.withStatus(completed: value),
+      );
+    } catch (_) {
+      showError('Could not update the assignment.');
+    }
   }
 
   // REFRESH TASKS
 
   Future<void> refreshTasks() async {
-    if (isRefreshing) return;
-
-    setState(() {
-      isRefreshing = true;
-    });
-
     try {
-      await widget.taskService.simulateRefresh();
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Assignments updated successfully'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    } catch (error) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Refresh failed: $error'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          isRefreshing = false;
-        });
-      }
+      await widget.taskService.loadTasks(refresh: true);
+    } catch (_) {
+      showError('Could not reload saved assignments.');
     }
+  }
+
+  void showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$message Try again.')),
+    );
   }
 
   // SWIPE TO DELETE + UNDO
 
-  Future<void> deleteTask(StudentTask task) async {
-    final originalIndex = await widget.taskService.removeTask(task);
+  Future<bool> deleteTask(StudentTask task) async {
+    final service = widget.taskService;
+    final int originalIndex;
+    try {
+      originalIndex = await service.removeTask(task);
+    } catch (_) {
+      showError('Could not delete the assignment.');
+      return false;
+    }
 
-    if (!mounted || originalIndex == -1) return;
+    if (!mounted || originalIndex == -1) return false;
 
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -113,15 +115,19 @@ class _TasksScreenState extends State<TasksScreen> {
 
           action: SnackBarAction(
             label: 'UNDO',
-            onPressed: () {
-              widget.taskService.restoreTask(
-                task,
-                originalIndex,
-              );
+            onPressed: () async {
+              if (!mounted) return;
+              try {
+                await service.restoreTask(task, originalIndex);
+              } catch (_) {
+                showError('Could not restore the assignment.');
+              }
             },
           ),
         ),
       );
+    // The service already removed the row once the deletion was saved.
+    return false;
   }
 
   // DELETE BACKGROUND
@@ -163,9 +169,7 @@ class _TasksScreenState extends State<TasksScreen> {
 
   // LIST VIEW
 
-  Widget buildList() {
-    final tasks = widget.taskService.tasks;
-
+  Widget buildList(List<StudentTask> tasks) {
     return ListView.separated(
       physics: const AlwaysScrollableScrollPhysics(),
 
@@ -191,13 +195,11 @@ class _TasksScreenState extends State<TasksScreen> {
 
           background: buildDeleteBackground(),
 
-          onDismissed: (_) {
-            deleteTask(task);
-          },
+          confirmDismiss: (_) => deleteTask(task),
 
           child: Card(
             elevation: 0,
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surfaceContainerLow,
             margin: EdgeInsets.zero,
 
             shape: RoundedRectangleBorder(
@@ -261,13 +263,15 @@ class _TasksScreenState extends State<TasksScreen> {
 
                         const SizedBox(width: 5),
 
-                        Text(
-                          task.dueDate,
-                          style: const TextStyle(
+                        Flexible(child: Text(
+                          task.isOverdue(DateTime.now()) ? '${task.dueDate} · Overdue' : task.dueDate,
+                          style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey,
+                            color: task.isOverdue(DateTime.now())
+                                ? Theme.of(context).colorScheme.error
+                                : Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
-                        ),
+                        )),
                       ],
                     ),
                   ],
@@ -294,20 +298,18 @@ class _TasksScreenState extends State<TasksScreen> {
 
   // GRID VIEW
 
-  Widget buildGrid() {
-    final tasks = widget.taskService.tasks;
-
+  Widget buildGrid(List<StudentTask> tasks) {
     return GridView.builder(
       physics: const AlwaysScrollableScrollPhysics(),
 
       padding: const EdgeInsets.only(bottom: 100),
 
       gridDelegate:
-      const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
+      const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 240,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        childAspectRatio: 0.72,
+        mainAxisExtent: 210,
       ),
 
       itemCount: tasks.length,
@@ -322,13 +324,11 @@ class _TasksScreenState extends State<TasksScreen> {
 
           background: buildDeleteBackground(),
 
-          onDismissed: (_) {
-            deleteTask(task);
-          },
+          confirmDismiss: (_) => deleteTask(task),
 
           child: Card(
             elevation: 0,
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surfaceContainerLow,
             margin: EdgeInsets.zero,
 
             shape: RoundedRectangleBorder(
@@ -461,56 +461,21 @@ class _TasksScreenState extends State<TasksScreen> {
 
   // EMPTY STATE
 
-  Widget buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-
-          children: [
-            const Icon(
-              Icons.assignment_outlined,
-              size: 75,
-              color: Colors.grey,
-            ),
-
-            const SizedBox(height: 16),
-
-            const Text(
-              'Catalog is Empty',
-              textAlign: TextAlign.center,
-
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 8),
-
-            const Text(
-              'You have no assignments right now.',
-              textAlign: TextAlign.center,
-
-              style: TextStyle(
-                color: Colors.grey,
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            ElevatedButton.icon(
-              onPressed: widget.taskService.resetTasks,
-
-              icon: const Icon(Icons.restart_alt),
-
-              label: const Text('Reset Catalog'),
-            ),
-          ],
+  Widget buildEmptyState(bool hasTasks) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      children: [
+        const Icon(Icons.assignment_outlined, size: 48),
+        const SizedBox(height: 12),
+        Text(
+          hasTasks ? 'No matching assignments' : 'No assignments yet',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.titleMedium,
         ),
-      ),
+        if (!hasTasks)
+          const Text('Tap Add Task to get started.', textAlign: TextAlign.center),
+      ],
     );
   }
 
@@ -523,11 +488,21 @@ class _TasksScreenState extends State<TasksScreen> {
 
       builder: (context, _) {
         final tasks = widget.taskService.tasks;
-
-        final completed =
-            tasks.where((task) => task.isCompleted).length;
-
+        final completed = widget.taskService.completedCount;
         final remaining = tasks.length - completed;
+        final today = DateTime.now();
+        final visibleTasks = tasks.where((task) {
+          if (!'${task.title} ${task.subject}'.toLowerCase().contains(query)) {
+            return false;
+          }
+          return switch (filter) {
+            _TaskFilter.all => true,
+            _TaskFilter.pending => !task.isCompleted,
+            _TaskFilter.overdue => task.isOverdue(today),
+            _TaskFilter.completed => task.isCompleted,
+            _TaskFilter.saved => task.isFavorite,
+          };
+        }).toList();
 
         return Scaffold(
           appBar: AppBar(
@@ -574,77 +549,40 @@ class _TasksScreenState extends State<TasksScreen> {
                   padding: const EdgeInsets.all(16),
 
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.surfaceContainerLow,
                     borderRadius:
                     BorderRadius.circular(16),
                   ),
 
-                  child: Row(
-                    mainAxisAlignment:
-                    MainAxisAlignment.spaceBetween,
-
+                  child: Wrap(
+                    spacing: 16,
+                    runSpacing: 8,
                     children: [
-                      Column(
-                        crossAxisAlignment:
-                        CrossAxisAlignment.start,
-
-                        children: [
-                          Text(
-                            '${tasks.length} Assignments',
-
-                            style: const TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-
-                          const SizedBox(height: 4),
-
-                          Text(
-                            '$remaining remaining',
-
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      Column(
-                        crossAxisAlignment:
-                        CrossAxisAlignment.end,
-
-                        children: [
-                          Text(
-                            '$completed completed',
-
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF1DAB8A),
-                            ),
-                          ),
-
-                          const SizedBox(height: 4),
-
-                          Text(
-                            isGridView
-                                ? 'Grid View'
-                                : 'List View',
-
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
-                      ),
+                      Text('$remaining remaining'),
+                      Text('$completed completed'),
                     ],
                   ),
                 ),
 
                 const SizedBox(height: 16),
+
+                TextField(
+                  onChanged: (value) => setState(() => query = value.trim().toLowerCase()),
+                  decoration: const InputDecoration(
+                    labelText: 'Search assignments',
+                    prefixIcon: Icon(Icons.search),
+                    isDense: true,
+                  ),
+                ),
+                DropdownButton<_TaskFilter>(
+                  isExpanded: true,
+                  value: filter,
+                  items: [
+                    for (final item in _TaskFilter.values)
+                      DropdownMenuItem(value: item, child: Text(item.label)),
+                  ],
+                  onChanged: (value) => setState(() => filter = value!),
+                ),
 
                 // LIST / GRID / EMPTY STATE
 
@@ -652,25 +590,11 @@ class _TasksScreenState extends State<TasksScreen> {
                   child: RefreshIndicator(
                     onRefresh: refreshTasks,
 
-                    child: tasks.isEmpty
-                        ? LayoutBuilder(
-                      builder: (context, constraints) {
-                        return ListView(
-                          physics:
-                          const AlwaysScrollableScrollPhysics(),
-
-                          children: [
-                            SizedBox(
-                              height: constraints.maxHeight,
-                              child: buildEmptyState(),
-                            ),
-                          ],
-                        );
-                      },
-                    )
+                    child: visibleTasks.isEmpty
+                        ? buildEmptyState(tasks.isNotEmpty)
                         : isGridView
-                        ? buildGrid()
-                        : buildList(),
+                        ? buildGrid(visibleTasks)
+                        : buildList(visibleTasks),
                   ),
                 ),
               ],
@@ -686,8 +610,6 @@ class _TasksScreenState extends State<TasksScreen> {
 
             label: const Text('Add Task'),
 
-            backgroundColor: const Color(0xFF405DE6),
-            foregroundColor: Colors.white,
           ),
         );
       },

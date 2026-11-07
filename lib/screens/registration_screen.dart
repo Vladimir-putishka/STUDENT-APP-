@@ -29,10 +29,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final passwordController = TextEditingController();
   final confirmController = TextEditingController();
 
-  bool acceptTerms = false;
+  bool localStorageAcknowledged = false;
   bool showPassword = false;
   bool isLoading = false;
-  bool showTermsError = false;
+  bool showStorageError = false;
 
   String selectedRole = 'Student';
 
@@ -44,10 +44,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     final isValid = _formKey.currentState!.validate();
 
     setState(() {
-      showTermsError = !acceptTerms;
+      showStorageError = !localStorageAcknowledged;
     });
 
-    if (!isValid || !acceptTerms) {
+    if (!isValid || !localStorageAcknowledged) {
       return;
     }
 
@@ -62,13 +62,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         passwordController.text,
         selectedRole,
       );
-
-      debugPrint('===== USER REGISTRATION =====');
-      debugPrint('Full Name: ${nameController.text.trim()}');
-      debugPrint('Email: ${emailController.text.trim()}');
-      debugPrint('Role: $selectedRole');
-      debugPrint('Terms Accepted: $acceptTerms');
-      debugPrint('=============================');
 
       if (!mounted) return;
 
@@ -351,14 +344,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
                   const SizedBox(height: 15),
 
-                  // TERMS AND CONDITIONS
-
                   CheckboxListTile(
                     title: const Text(
-                      'I accept the Terms and Conditions',
+                      'I understand that my account and study data are saved on this device.',
                     ),
 
-                    value: acceptTerms,
+                    value: localStorageAcknowledged,
 
                     controlAffinity:
                     ListTileControlAffinity.leading,
@@ -367,13 +358,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
                     onChanged: (value) {
                       setState(() {
-                        acceptTerms = value ?? false;
-                        showTermsError = !acceptTerms;
+                        localStorageAcknowledged = value ?? false;
+                        showStorageError = !localStorageAcknowledged;
                       });
                     },
                   ),
 
-                  if (showTermsError)
+                  if (showStorageError)
                     const Padding(
                       padding: EdgeInsets.only(
                         left: 12,
@@ -381,7 +372,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       ),
 
                       child: Text(
-                        'You must accept the terms to register',
+                        'Acknowledge local storage to continue.',
                         style: TextStyle(
                           color: Colors.red,
                           fontSize: 12,
@@ -435,14 +426,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
                   // BACK TO LOGIN
 
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      const Flexible(
-                        child: Text(
-                          'Already have an account?',
-                        ),
-                      ),
+                      const Text('Already have an account?'),
 
                       TextButton(
                         onPressed: isLoading

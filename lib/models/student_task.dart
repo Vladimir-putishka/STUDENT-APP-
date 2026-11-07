@@ -21,8 +21,35 @@ class StudentTask {
   final String category;
   final Color color;
 
-  bool isCompleted;
-  bool isFavorite;
+  final bool isCompleted;
+  final bool isFavorite;
+
+  DateTime? get deadline {
+    final parts = dueDate.split('/');
+    if (parts.length != 3) return null;
+    final day = int.tryParse(parts[0]);
+    final month = int.tryParse(parts[1]);
+    final year = int.tryParse(parts[2]);
+    if (day == null || month == null || year == null) return null;
+    final date = DateTime(year, month, day);
+    return date.day == day && date.month == month ? date : null;
+  }
+
+  bool isOverdue(DateTime today) =>
+      !isCompleted &&
+      (deadline?.isBefore(DateUtils.dateOnly(today)) ?? false);
+
+  StudentTask withStatus({bool? completed, bool? favorite}) => StudentTask(
+        id: id,
+        title: title,
+        subject: subject,
+        description: description,
+        dueDate: dueDate,
+        category: category,
+        color: color,
+        isCompleted: completed ?? isCompleted,
+        isFavorite: favorite ?? isFavorite,
+      );
 
   Map<String, dynamic> toJson() {
     return {

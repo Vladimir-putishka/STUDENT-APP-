@@ -9,7 +9,7 @@ class TaskCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: Colors.white,
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -39,7 +39,10 @@ class TaskCard extends StatelessWidget {
                     const SizedBox(height: 5),
                     Text('${task.subject} • ${task.dueDate}',
                       maxLines: 2, overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      )),
                   ],
                 ),
               ),

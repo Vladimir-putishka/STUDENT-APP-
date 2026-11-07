@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../models/class_session.dart';
 import '../models/student_task.dart';
 import '../models/news_article.dart';
 
 import '../services/task_service.dart';
+import '../services/schedule_service.dart';
 
 import '../widgets/schedule_card.dart';
 import '../widgets/task_card.dart';
@@ -11,17 +13,20 @@ import '../widgets/news_card.dart';
 
 import 'task_detail_screen.dart';
 import 'news_detail_screen.dart';
+import 'schedule_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final TaskService taskService;
+  final ScheduleService schedule;
   final String userName;
   final List<NewsArticle> news;
   final bool Function(NewsArticle) isFavorite;
-  final ValueChanged<NewsArticle> onFavoriteToggle;
+  final Future<bool> Function(NewsArticle) onFavoriteToggle;
 
   const HomeScreen({
     super.key,
     required this.taskService,
+    required this.schedule,
     required this.userName,
     required this.news,
     required this.isFavorite,
@@ -39,10 +44,8 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => TaskDetailScreen(
-          task: task,
-          onUpdate: () {
-            widget.taskService.updateTask(task);
-          },
+          taskId: task.id,
+          taskService: widget.taskService,
         ),
       ),
     );
@@ -68,16 +71,25 @@ class _HomeScreenState extends State<HomeScreen> {
     // LISTEN TO SHARED TASK SERVICE
 
     return AnimatedBuilder(
-      animation: widget.taskService,
+      animation: Listenable.merge([widget.taskService, widget.schedule]),
       builder: (context, _) {
         // GET SHARED TASKS
 
         final tasks = widget.taskService.tasks;
+        final now = DateTime.now();
+        final classes = widget.schedule.forWeekday(now.weekday);
+        final upcoming = tasks.where((task) => !task.isCompleted).toList()
+          ..sort((a, b) {
+            final first = a.deadline;
+            final second = b.deadline;
+            if (first == null) return second == null ? 0 : 1;
+            if (second == null) return -1;
+            return first.compareTo(second);
+          });
 
         // CALCULATE PROGRESS
 
-        final completed =
-            tasks.where((task) => task.isCompleted).length;
+        final completed = widget.taskService.completedCount;
 
         final remaining = tasks.length - completed;
 
@@ -121,10 +133,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
                               const SizedBox(height: 4),
 
-                              const Text(
-                                'Let’s make today productive.',
+                              Text(
+                                MaterialLocalizations.of(context).formatFullDate(now),
                                 style: TextStyle(
-                                  color: Color(0xFF7B8398),
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 ),
                               ),
                             ],
@@ -216,27 +228,36 @@ class _HomeScreenState extends State<HomeScreen> {
 
                     // TODAY'S SCHEDULE
 
-                    const Text(
-                      'Today’s schedule',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Today’s schedule',
+                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => ScheduleScreen(schedule: widget.schedule),
+                            ),
+                          ),
+                          child: const Text('Weekly schedule'),
+                        ),
+                      ],
                     ),
 
                     const SizedBox(height: 13),
 
-                    const ScheduleCard(
-                      time: '09:00',
-                      subject: 'Mobile Development',
-                      room: 'Room 305',
-                    ),
-
-                    const ScheduleCard(
-                      time: '11:00',
-                      subject: 'Cybersecurity',
-                      room: 'Room 214',
-                    ),
+                    if (classes.isEmpty)
+                      const Text('No classes scheduled for today.')
+                    else
+                      for (final session in classes)
+                        ScheduleCard(
+                          time: ClassSession.timeOfDay(session.startMinute).format(context),
+                          subject: session.subject,
+                          room: session.room,
+                        ),
 
                     const SizedBox(height: 20),
 
@@ -255,9 +276,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
 
                         Text(
-                          '${tasks.length} total',
-                          style: const TextStyle(
-                            color: Color(0xFF7B8398),
+                          '${upcoming.length} open',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ],
@@ -267,12 +288,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
                     // SHARED TASKS
 
-                    if (tasks.isEmpty)
+                    if (upcoming.isEmpty)
                       Container(
                         padding: const EdgeInsets.all(24),
 
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: Theme.of(context).colorScheme.surfaceContainerLow,
                           borderRadius:
                           BorderRadius.circular(16),
                         ),
@@ -288,7 +309,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             SizedBox(height: 12),
 
                             Text(
-                              'No assignments yet',
+                              'No open assignments',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -298,7 +319,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             SizedBox(height: 6),
 
                             Text(
-                              'Open Tasks to add your first assignment.',
+                              'Add and manage assignments in the Tasks tab.',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: Colors.grey,
@@ -308,7 +329,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       )
                     else
-                      for (final task in tasks)
+                      for (final task in upcoming)
                         TaskCard(
                           task: task,
                           onTap: () => openTask(task),
@@ -325,6 +346,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
+                    const Text('Sample announcements'),
 
                     const SizedBox(height: 15),
 

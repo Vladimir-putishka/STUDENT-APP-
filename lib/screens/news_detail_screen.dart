@@ -5,7 +5,7 @@ import '../models/news_article.dart';
 class NewsDetailScreen extends StatefulWidget {
   final NewsArticle article;
   final bool isFavorite;
-  final ValueChanged<NewsArticle> onFavoriteToggle;
+  final Future<bool> Function(NewsArticle) onFavoriteToggle;
 
   const NewsDetailScreen({
     super.key,
@@ -21,6 +21,7 @@ class NewsDetailScreen extends StatefulWidget {
 
 class _NewsDetailScreenState extends State<NewsDetailScreen> {
   late bool favorite;
+  bool saving = false;
 
   @override
   void initState() {
@@ -28,12 +29,14 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
     favorite = widget.isFavorite;
   }
 
-  void toggleFavorite() {
+  Future<void> toggleFavorite() async {
+    setState(() => saving = true);
+    final value = await widget.onFavoriteToggle(widget.article);
+    if (!mounted) return;
     setState(() {
-      favorite = !favorite;
+      favorite = value;
+      saving = false;
     });
-
-    widget.onFavoriteToggle(widget.article);
   }
 
   @override
@@ -119,7 +122,7 @@ class _NewsDetailScreenState extends State<NewsDetailScreen> {
                   width: double.infinity,
 
                   child: ElevatedButton.icon(
-                    onPressed: toggleFavorite,
+                    onPressed: saving ? null : toggleFavorite,
 
                     icon: Icon(
                       favorite

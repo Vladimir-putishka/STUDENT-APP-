@@ -9,6 +9,16 @@ class CatalogProduct {
   final IconData icon;
   final Color color;
 
+  static String formatPrice(double price) => '${price.toStringAsFixed(0)} ₸';
+
+  Map<String, Object> toJson() => {
+        'id': id,
+        'title': title,
+        'category': category,
+        'price': price,
+        'rating': rating,
+      };
+
   const CatalogProduct({
     required this.id,
     required this.title,
