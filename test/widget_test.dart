@@ -119,6 +119,48 @@ void main() {
     expect(find.text('Your cart is empty'), findsOneWidget);
   });
 
+  testWidgets('LW11 restores the cart badge and total after a full restart',
+      (WidgetTester tester) async {
+    final preferences = await SharedPreferences.getInstance();
+    final storage = StudentStorage(preferences, 'sam@example.edu');
+    final firstCart = CartProvider(storage);
+
+    Future<void> showMarketplace(CartProvider cart) => tester.pumpWidget(
+          ChangeNotifierProvider.value(
+            value: cart,
+            child: const MaterialApp(home: CatalogScreen()),
+          ),
+        );
+
+    await showMarketplace(firstCart);
+    await tester.tap(find.text('Add to Cart').first);
+    await tester.pumpAndSettle();
+
+    final saved = preferences.getString('student.sam@example.edu.cart');
+    expect(saved, isNotNull);
+    expect((jsonDecode(saved!) as List).single, isA<Map>());
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    firstCart.dispose();
+
+    final restoredCart = CartProvider(
+      StudentStorage(await SharedPreferences.getInstance(), 'sam@example.edu'),
+    );
+    await showMarketplace(restoredCart);
+
+    final badge = tester.widget<Badge>(find.byType(Badge));
+    expect(badge.isLabelVisible, isTrue);
+    expect((badge.label as Text).data, '1');
+
+    await tester.tap(find.byTooltip('Open cart'));
+    await tester.pumpAndSettle();
+    expect(find.text('Total · 1 item'), findsOneWidget);
+    expect(find.text('499990 ₸'), findsNWidgets(2));
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    restoredCart.dispose();
+  });
+
   test('Local account verifies passwords and restores the session', () async {
     await AuthService.register(
       name: 'Sam Student',
@@ -142,7 +184,8 @@ void main() {
   });
 
   for (final grid in [false, true]) {
-    testWidgets('Pull to refresh prepends an item after 1.5s in ${grid ? 'grid' : 'list'}',
+    testWidgets(
+        'Pull to refresh prepends an item after 1.5s in ${grid ? 'grid' : 'list'}',
         (tester) async {
       await tester.binding.setSurfaceSize(const Size(800, 1200));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -157,9 +200,11 @@ void main() {
         await tester.pumpAndSettle();
       }
 
-      final refresh = tester.widget<RefreshIndicator>(
-        find.byType(RefreshIndicator),
-      ).onRefresh();
+      final refresh = tester
+          .widget<RefreshIndicator>(
+            find.byType(RefreshIndicator),
+          )
+          .onRefresh();
       await tester.pump(const Duration(milliseconds: 1499));
       expect(find.text('6 products available'), findsOneWidget);
       expect(find.text('New Study Item 7'), findsNothing);
@@ -168,8 +213,10 @@ void main() {
       await tester.pump();
       expect(find.text('7 products available'), findsOneWidget);
       expect(
-        tester.widget<CatalogProductCard>(find.byType(CatalogProductCard).first)
-            .product.title,
+        tester
+            .widget<CatalogProductCard>(find.byType(CatalogProductCard).first)
+            .product
+            .title,
         'New Study Item 7',
       );
       await tester.drag(
@@ -266,7 +313,8 @@ void main() {
       of: find.widgetWithText(NewsCard, 'Cybersecurity Workshop'),
       matching: find.byTooltip('Add to favorites'),
     );
-    await Scrollable.ensureVisible(tester.element(favoriteButton), alignment: 0.5);
+    await Scrollable.ensureVisible(tester.element(favoriteButton),
+        alignment: 0.5);
     await tester.pumpAndSettle();
     await tester.tap(favoriteButton);
     await tester.pumpAndSettle();

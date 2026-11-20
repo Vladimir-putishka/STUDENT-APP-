@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/catalog_product.dart';
+import '../models/product.dart';
 import '../providers/cart_provider.dart';
+import '../widgets/product_image.dart';
 
 class CartScreen extends StatelessWidget {
   const CartScreen({super.key});
 
-  Future<void> changeCart(BuildContext context, Future<void> Function() action) async {
+  Future<void> changeCart(
+      BuildContext context, Future<void> Function() action) async {
     try {
       await action();
     } catch (_) {
@@ -29,8 +32,9 @@ class CartScreen extends StatelessWidget {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
-          body:
-              cart.itemCount == 0 ? _buildEmptyState() : _buildCartContent(context, cart),
+          body: cart.itemCount == 0
+              ? _buildEmptyState()
+              : _buildCartContent(context, cart),
         );
       },
     );
@@ -49,15 +53,16 @@ class CartScreen extends StatelessWidget {
               final product = items[index];
               return _CartItemCard(
                 product: product,
-                formattedPrice: CatalogProduct.formatPrice(product.price),
-                onRemove: () => changeCart(context, () => cart.removeFromCart(product)),
+                formattedPrice: product.formattedPrice,
+                onRemove: () =>
+                    changeCart(context, () => cart.removeFromCart(product)),
               );
             },
           ),
         ),
         _CartSummary(
           itemCount: cart.itemCount,
-          totalPrice: CatalogProduct.formatPrice(cart.totalPrice),
+          totals: cart.totalsByCurrency,
           onClearAll: () => changeCart(context, cart.clearAll),
         ),
       ],
@@ -123,7 +128,12 @@ class _CartItemCard extends StatelessWidget {
             color: product.color.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(13),
           ),
-          child: Icon(product.icon, color: product.color),
+          child: product is Product
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(13),
+                  child: ProductImage(url: (product as Product).imageUrl),
+                )
+              : Icon(product.icon, color: product.color),
         ),
         title: Text(
           product.title,
@@ -145,12 +155,12 @@ class _CartItemCard extends StatelessWidget {
 
 class _CartSummary extends StatelessWidget {
   final int itemCount;
-  final String totalPrice;
+  final Map<String, double> totals;
   final VoidCallback onClearAll;
 
   const _CartSummary({
     required this.itemCount,
-    required this.totalPrice,
+    required this.totals,
     required this.onClearAll,
   });
 
@@ -163,20 +173,35 @@ class _CartSummary extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surfaceContainerLow,
-          border: Border(top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant)),
+          border: Border(
+              top: BorderSide(
+                  color: Theme.of(context).colorScheme.outlineVariant)),
         ),
         child: Column(
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Flexible(child: Text(itemCount == 1 ? 'Total · 1 item' : 'Total · $itemCount items')),
-                Text(
-                  totalPrice,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
+                Flexible(
+                    child: Text(itemCount == 1
+                        ? 'Total · 1 item'
+                        : 'Total · $itemCount items')),
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      for (final entry in totals.entries)
+                        Text(
+                          entry.key == 'USD'
+                              ? '\$${entry.value.toStringAsFixed(2)}'
+                              : CatalogProduct.formatPrice(entry.value),
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ],

@@ -8,6 +8,13 @@ class CatalogProduct {
   final double rating;
   final IconData icon;
   final Color color;
+  final String source;
+  final String currency;
+
+  String get cartKey => '$source:$id';
+
+  String get formattedPrice =>
+      currency == 'USD' ? '\$${price.toStringAsFixed(2)}' : formatPrice(price);
 
   static String formatPrice(double price) => '${price.toStringAsFixed(0)} ₸';
 
@@ -17,6 +24,8 @@ class CatalogProduct {
         'category': category,
         'price': price,
         'rating': rating,
+        'source': source,
+        'currency': currency,
       };
 
   const CatalogProduct({
@@ -27,5 +36,7 @@ class CatalogProduct {
     required this.rating,
     required this.icon,
     required this.color,
+    this.source = 'local',
+    this.currency = 'KZT',
   });
 }

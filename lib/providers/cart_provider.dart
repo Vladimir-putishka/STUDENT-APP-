@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../data/marketplace_products.dart';
 import '../models/catalog_product.dart';
+import '../models/product.dart';
 import '../services/student_storage.dart';
 
 class CartProvider extends ChangeNotifier {
@@ -15,7 +16,9 @@ class CartProvider extends ChangeNotifier {
     for (final entry in jsonDecode(saved) as List) {
       final data = entry is Map ? Map<String, dynamic>.from(entry) : null;
       final id = data == null ? entry as int : data['id'] as int;
-      var product = products[id];
+      CatalogProduct? product = data?['source'] == 'fakestore'
+          ? Product.fromJson(data!)
+          : products[id];
       if (product == null && data != null) {
         product = CatalogProduct(
           id: id,
@@ -40,8 +43,17 @@ class CartProvider extends ChangeNotifier {
   double get totalPrice =>
       _items.fold(0, (total, product) => total + product.price);
 
+  Map<String, double> get totalsByCurrency {
+    final totals = <String, double>{};
+    for (final product in _items) {
+      totals.update(product.currency, (total) => total + product.price,
+          ifAbsent: () => product.price);
+    }
+    return Map.unmodifiable(totals);
+  }
+
   bool isInCart(CatalogProduct product) =>
-      _items.any((item) => item.id == product.id);
+      _items.any((item) => item.cartKey == product.cartKey);
 
   Future<void> _change(void Function(List<CatalogProduct>) change) {
     final storage = _storage;
@@ -64,12 +76,12 @@ class CartProvider extends ChangeNotifier {
         if (!isInCart(product)) items.add(product);
       });
 
-  Future<void> removeFromCart(CatalogProduct product) =>
-      _change((items) => items.removeWhere((item) => item.id == product.id));
+  Future<void> removeFromCart(CatalogProduct product) => _change(
+      (items) => items.removeWhere((item) => item.cartKey == product.cartKey));
 
   Future<void> toggle(CatalogProduct product) => _change((items) {
         if (isInCart(product)) {
-          items.removeWhere((item) => item.id == product.id);
+          items.removeWhere((item) => item.cartKey == product.cartKey);
         } else {
           items.add(product);
         }

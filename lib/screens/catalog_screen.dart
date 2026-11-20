@@ -5,7 +5,8 @@ import '../data/marketplace_products.dart';
 import '../models/catalog_product.dart';
 import '../providers/cart_provider.dart';
 import '../widgets/catalog_product_card.dart';
-import 'cart_screen.dart';
+import '../widgets/cart_button.dart';
+import 'cloud_catalog_screen.dart';
 
 class CatalogScreen extends StatefulWidget {
   const CatalogScreen({super.key});
@@ -35,12 +36,6 @@ class _CatalogScreenState extends State<CatalogScreen> {
     setState(() {
       products.insert(0, newProduct);
     });
-  }
-
-  void openCart() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const CartScreen()),
-    );
   }
 
   void toggleView() {
@@ -101,18 +96,6 @@ class _CatalogScreenState extends State<CatalogScreen> {
     );
   }
 
-  Widget buildCartButton(BuildContext context, CartProvider cart) {
-    return IconButton(
-      tooltip: 'Open cart',
-      onPressed: openCart,
-      icon: Badge.count(
-        count: cart.itemCount,
-        isLabelVisible: cart.itemCount > 0,
-        child: const Icon(Icons.shopping_cart_outlined),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Consumer<CartProvider>(
@@ -125,11 +108,20 @@ class _CatalogScreenState extends State<CatalogScreen> {
             ),
             actions: [
               IconButton(
+                tooltip: 'Cloud products',
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const CloudCatalogScreen(),
+                  ),
+                ),
+                icon: const Icon(Icons.cloud_outlined),
+              ),
+              IconButton(
                 tooltip: isGridView ? 'Switch to list' : 'Switch to grid',
                 onPressed: toggleView,
                 icon: Icon(isGridView ? Icons.view_list : Icons.grid_view),
               ),
-              buildCartButton(context, cart),
+              const CartButton(),
             ],
           ),
           body: Padding(
@@ -145,7 +137,8 @@ class _CatalogScreenState extends State<CatalogScreen> {
                 Expanded(
                   child: RefreshIndicator(
                     onRefresh: refreshCatalog,
-                    child: isGridView ? buildGridView(cart) : buildListView(cart),
+                    child:
+                        isGridView ? buildGridView(cart) : buildListView(cart),
                   ),
                 ),
               ],
